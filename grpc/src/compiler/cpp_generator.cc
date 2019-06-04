@@ -553,7 +553,7 @@ void PrintHeaderClientMethod(grpc_generator::Printer* printer,
 
 void PrintHeaderClientMethodCallbackInterfacesStart(
     grpc_generator::Printer* printer,
-    std::map<grpc::string, grpc::string>* vars __attribute__((unused))) {
+    std::map<grpc::string, grpc::string>* vars) {
   // This declares the interface for the callback-based API. The components
   // are pure; even though this is new (post-1.0) API, it can be pure because
   // it is an entirely new interface that happens to be scoped within
