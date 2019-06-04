@@ -24,6 +24,8 @@
 #include "src/compiler/cpp_generator.h"
 #include "src/compiler/go_generator.h"
 #include "src/compiler/java_generator.h"
+#include "src/compiler/python_generator.h"
+#include "src/compiler/python_private_generator.h"
 
 #if defined(_MSC_VER)
 #  pragma warning(push)
@@ -78,6 +80,10 @@ class FlatBufMethod : public grpc_generator::Method {
       grpc::string * /*str*/, grpc::string /*generator_file_name*/,
       bool /*generate_in_pb2_grpc*/, grpc::string /*import_prefix*/) const {
     return true;
+  }
+
+  std::string get_fb_builder() const {
+    return "builder";
   }
 
   std::string input_type_name() const { return GRPCType(*method_->request); }
@@ -187,7 +193,7 @@ class FlatBufPrinter : public grpc_generator::Printer {
 class FlatBufFile : public grpc_generator::File {
  public:
   enum Language {
-    kLanguageGo, kLanguageCpp, kLanguageJava
+    kLanguageGo, kLanguageCpp, kLanguageJava, kLanguagePython
   };
 
   FlatBufFile(const Parser &parser, const std::string &file_name,
@@ -232,6 +238,9 @@ class FlatBufFile : public grpc_generator::File {
       }
       case kLanguageJava: {
         return "import com.google.flatbuffers.grpc.FlatbuffersUtils;";
+      }
+      case kLanguagePython: {
+        return "";
       }
     }
     return "";
@@ -366,6 +375,38 @@ bool GenerateJavaGRPC(const Parser &parser, const std::string &path,
   }
   if (!nservices) return true;
   return JavaGRPCGenerator(parser, path, file_name).generate();
+}
+
+bool GeneratePythonGRPC(const Parser &parser, const std::string & /*path*/,
+                        const std::string &file_name) {
+
+  int nservices = 0;
+  for (auto it = parser.services_.vec.begin(); it != parser.services_.vec.end();
+       ++it) {
+    if (!(*it)->generated) nservices++;
+  }
+  if (!nservices) return true;
+
+  grpc_python_generator::GeneratorConfiguration config;
+  config.grpc_package_root = "grpc";
+  config.beta_package_root = "grpc.beta";
+  config.import_prefix = "";
+
+  FlatBufFile fbfile(parser, file_name, FlatBufFile::kLanguagePython);
+
+  grpc_python_generator::PrivateGenerator generator(config, &fbfile);
+
+  std::string code = generator.GetGrpcServices();
+  std::string namespace_dir;
+  auto &namespaces = parser.namespaces_.back()->components;
+  for (auto it = namespaces.begin(); it != namespaces.end(); ++it) {
+    if (it != namespaces.begin()) namespace_dir += kPathSeparator;
+    namespace_dir += *it;
+  }
+
+  std::string grpc_py_filename =
+      namespace_dir + kPathSeparator + file_name + "_grpc_fb.py";
+  return flatbuffers::SaveFile(grpc_py_filename.c_str(), code, false);
 }
 
 }  // namespace flatbuffers

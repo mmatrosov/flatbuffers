@@ -17,6 +17,7 @@ from .number_types import (UOffsetTFlags, SOffsetTFlags, VOffsetTFlags)
 
 from . import encode
 from . import packer
+import pickle
 
 from . import compat
 from .compat import range_func
